@@ -19,4 +19,10 @@ public class TabRenderInfo {
     public int texW, texH;
     public Identifier sprite;
     public int itemX, itemY;
+    /**
+     * X of a 1px line closing the tab's inner edge, or -1 for none. The side
+     * tab sprites are open on the edge that normally tucks under the GUI, so
+     * a column that has moved away from the GUI draws its edge shut.
+     */
+    public int capX = -1;
 }

@@ -33,5 +33,8 @@ public class InventoryTabsConfig implements ConfigData {
     @ConfigEntry.Gui.Tooltip
     public List<String> includeTab = Arrays.asList();
 
+    @ConfigEntry.Gui.Tooltip
+    public List<String> excludeScreens = Arrays.asList();
+
     public boolean debugEnabled = false;
 }
