@@ -13,7 +13,17 @@ jobs:
   build:
     strategy:
       matrix:
-        branch: ['26.2', '1.21.1', '1.20.1']
+        # One entry per supported Minecraft version branch. game_version is
+        # passed to the publishing steps explicitly rather than letting them
+        # infer it from the jar metadata, whose ranges (e.g. ~1.21.1) would
+        # otherwise be expanded to every 1.21.x release.
+        include:
+          - branch: '26.2'
+            game_version: '26.2'
+          - branch: '1.21.1'
+            game_version: '1.21.1'
+          - branch: '1.20.1'
+            game_version: '1.20.1'
     runs-on: ubuntu-latest
     env:
       MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
@@ -52,7 +62,12 @@ jobs:
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: fabric/build/libs/!(*-@(sources)).jar
           version-type: release
-          version-resolver: all
+          name: Improved Inventory Tabs ${{ github.event.release.tag_name }} for Minecraft ${{ matrix.game_version }} (Fabric)
+          game-versions: ${{ matrix.game_version }}
+          dependencies: |
+            cloth-config(required){curseforge:348521}{modrinth:9s6osm5g}
+            fabric-api(required){curseforge:306612}{modrinth:P7dR8mSH}
+            modmenu(optional){curseforge:308702}{modrinth:mOgUt4GM}
           loaders: |
             fabric
             quilt
@@ -64,7 +79,10 @@ jobs:
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: neoforge/build/libs/!(*-@(sources)).jar
           version-type: release
-          version-resolver: all
+          name: Improved Inventory Tabs ${{ github.event.release.tag_name }} for Minecraft ${{ matrix.game_version }} (NeoForge)
+          game-versions: ${{ matrix.game_version }}
+          dependencies: |
+            cloth-config(required){curseforge:348521}{modrinth:9s6osm5g}
           loaders: |
             neoforge
       - name: publish forge jar to CurseForge
@@ -75,7 +93,10 @@ jobs:
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: forge/build/libs/!(*-@(sources)).jar
           version-type: release
-          version-resolver: all
+          name: Improved Inventory Tabs ${{ github.event.release.tag_name }} for Minecraft ${{ matrix.game_version }} (Forge)
+          game-versions: ${{ matrix.game_version }}
+          dependencies: |
+            cloth-config(required){curseforge:348521}{modrinth:9s6osm5g}
           loaders: |
             forge
       - name: publish fabric jar to Modrinth
@@ -88,7 +109,12 @@ jobs:
           modrinth-unfeature-mode: intersection
           files: fabric/build/libs/!(*-@(sources)).jar
           version-type: release
-          version-resolver: all
+          name: Improved Inventory Tabs ${{ github.event.release.tag_name }} for Minecraft ${{ matrix.game_version }} (Fabric)
+          game-versions: ${{ matrix.game_version }}
+          dependencies: |
+            cloth-config(required){curseforge:348521}{modrinth:9s6osm5g}
+            fabric-api(required){curseforge:306612}{modrinth:P7dR8mSH}
+            modmenu(optional){curseforge:308702}{modrinth:mOgUt4GM}
           loaders: |
             fabric
             quilt
@@ -102,7 +128,10 @@ jobs:
           modrinth-unfeature-mode: intersection
           files: neoforge/build/libs/!(*-@(sources)).jar
           version-type: release
-          version-resolver: all
+          name: Improved Inventory Tabs ${{ github.event.release.tag_name }} for Minecraft ${{ matrix.game_version }} (NeoForge)
+          game-versions: ${{ matrix.game_version }}
+          dependencies: |
+            cloth-config(required){curseforge:348521}{modrinth:9s6osm5g}
           loaders: |
             neoforge
       - name: publish forge jar to Modrinth
@@ -115,6 +144,9 @@ jobs:
           modrinth-unfeature-mode: intersection
           files: forge/build/libs/!(*-@(sources)).jar
           version-type: release
-          version-resolver: all
+          name: Improved Inventory Tabs ${{ github.event.release.tag_name }} for Minecraft ${{ matrix.game_version }} (Forge)
+          game-versions: ${{ matrix.game_version }}
+          dependencies: |
+            cloth-config(required){curseforge:348521}{modrinth:9s6osm5g}
           loaders: |
             forge
