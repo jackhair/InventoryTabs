@@ -1,10 +1,12 @@
 package com.kqp.inventorytabs.gametest;
 
 import com.kqp.inventorytabs.api.TabProviderRegistry;
+import com.kqp.inventorytabs.init.InventoryTabsClient;
 import com.kqp.inventorytabs.init.InventoryTabsConfig;
 import com.kqp.inventorytabs.mixin.accessor.HandledScreenAccessor;
 import com.kqp.inventorytabs.tabs.TabManager;
 import com.kqp.inventorytabs.tabs.render.TabLayout;
+import com.kqp.inventorytabs.tabs.render.TabRenderInfo;
 import com.kqp.inventorytabs.tabs.render.TabRenderer;
 import com.kqp.inventorytabs.tabs.tab.ChestTab;
 import com.kqp.inventorytabs.tabs.tab.SimpleBlockTab;
@@ -15,6 +17,9 @@ import me.shedaniel.autoconfig.AutoConfigClient;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -186,6 +191,49 @@ public class InventoryTabsClientGameTest implements FabricClientGameTest {
             singleplayer.getConnection().waitForClientboundPackets();
             context.waitTicks(5);
 
+            // Screens like Backpacked's add button panels beside the container.
+            // The tab columns must move out past them rather than overlap them.
+            context.setScreen(() -> new SideWidgetInventoryScreen(Minecraft.getInstance().player, true));
+            context.waitTicks(20);
+            context.takeScreenshot("side-widgets-vertical");
+            String sideProblems = context.computeOnClient(mc -> describeWidgetClashes(mc, false));
+            if (!sideProblems.isEmpty()) {
+                throw new AssertionError("Tab columns clash with side widgets: " + sideProblems);
+            }
+            context.setScreen(() -> null);
+            context.waitTicks(5);
+
+            // Same for the bottom row of the horizontal layout, while the top row
+            // stays put because nothing sits above the GUI.
+            context.runOnClient(mc -> AutoConfig.getConfigHolder(InventoryTabsConfig.class).getConfig().tabLayout
+                    = TabLayout.HORIZONTAL);
+            context.setScreen(() -> new SideWidgetInventoryScreen(Minecraft.getInstance().player, false));
+            context.waitTicks(20);
+            context.takeScreenshot("side-widgets-horizontal");
+            String rowProblems = context.computeOnClient(mc -> describeWidgetClashes(mc, true));
+            context.runOnClient(mc -> AutoConfig.getConfigHolder(InventoryTabsConfig.class).getConfig().tabLayout
+                    = TabLayout.VERTICAL);
+            if (!rowProblems.isEmpty()) {
+                throw new AssertionError("Tab rows clash with top/bottom widgets: " + rowProblems);
+            }
+            context.setScreen(() -> null);
+            context.waitTicks(5);
+
+            // Screens named in excludeScreens get no tabs at all ('*' wildcard).
+            context.runOnClient(mc -> AutoConfig.getConfigHolder(InventoryTabsConfig.class).getConfig().excludeScreens
+                    = java.util.List.of("*.SideWidgetInventoryScreen"));
+            context.setScreen(() -> new SideWidgetInventoryScreen(Minecraft.getInstance().player, true));
+            context.waitTicks(20);
+            context.takeScreenshot("screen-excluded");
+            boolean screenExcluded = context.computeOnClient(mc -> !InventoryTabsClient.screenSupported(mc.gui.screen()));
+            context.runOnClient(mc -> AutoConfig.getConfigHolder(InventoryTabsConfig.class).getConfig().excludeScreens
+                    = java.util.List.of());
+            if (!screenExcluded) {
+                throw new AssertionError("excludeScreens did not exclude SideWidgetInventoryScreen");
+            }
+            context.setScreen(() -> null);
+            context.waitTicks(5);
+
             // Surround the player with barrels so the tabs overflow into the
             // right column and paginate.
             int[][] barrelPositions = {
@@ -319,5 +367,62 @@ public class InventoryTabsClientGameTest implements FabricClientGameTest {
         context.waitTicks(5);
         context.takeScreenshot("config-screen");
         context.setScreen(() -> null);
+    }
+
+    /**
+     * Lists every rendered tab whose opaque part overlaps one of the current
+     * screen's widgets, and complains if the columns/rows didn't actually move
+     * off the GUI. Empty when all is well.
+     */
+    private static String describeWidgetClashes(Minecraft mc, boolean horizontal) {
+        AbstractContainerScreen<?> screen = (AbstractContainerScreen<?>) mc.gui.screen();
+        HandledScreenAccessor accessor = (HandledScreenAccessor) screen;
+        StringBuilder problems = new StringBuilder();
+
+        TabRenderer.Placement placement = TabRenderer.getPlacement(screen, horizontal);
+        if (horizontal) {
+            int guiTop = accessor.getTopPos();
+            int guiBottom = guiTop + accessor.getImageHeight();
+            if (placement.topY() != guiTop - TabRenderer.ROW_TAB_HEIGHT + 4) {
+                problems.append("top row moved although nothing is above the GUI; ");
+            }
+            if (placement.bottomY() <= guiBottom - 4) {
+                problems.append("bottom row did not move away from the GUI; ");
+            }
+        } else if (!placement.leftDetached() || !placement.rightDetached()) {
+            problems.append("columns did not move away from the GUI; ");
+        }
+
+        TabRenderInfo[] infos = TabManager.getInstance().tabRenderer.getTabRenderInfos();
+        int rendered = 0;
+        for (int i = 0; i < infos.length; i++) {
+            TabRenderInfo info = infos[i];
+            if (info == null) {
+                continue;
+            }
+            rendered++;
+            boolean firstLine = i < TabRenderer.COLUMN_CAPACITY;
+            // Only the opaque part of the sprite counts: side tabs are transparent
+            // for 4px on their inner edge, above/below tabs for 3px.
+            int x0 = info.x, x1 = info.x + info.texW, y0 = info.y, y1 = info.y + info.texH;
+            if (horizontal) {
+                if (firstLine) y1 -= 3; else y0 += 3;
+            } else {
+                if (firstLine) x1 -= 4; else x0 += 4;
+            }
+            for (GuiEventListener child : screen.children()) {
+                if (child instanceof AbstractWidget widget && widget.visible
+                        && x0 < widget.getX() + widget.getWidth() && x1 > widget.getX()
+                        && y0 < widget.getY() + widget.getHeight() && y1 > widget.getY()) {
+                    problems.append("tab ").append(i).append(" [").append(x0).append(',').append(y0).append(" - ")
+                            .append(x1).append(',').append(y1).append("] overlaps widget '")
+                            .append(widget.getMessage().getString()).append("'; ");
+                }
+            }
+        }
+        if (rendered == 0) {
+            problems.append("no tabs rendered; ");
+        }
+        return problems.toString();
     }
 }
