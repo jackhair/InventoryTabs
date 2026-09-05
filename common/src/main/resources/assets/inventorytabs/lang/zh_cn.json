@@ -10,6 +10,8 @@
   "text.autoconfig.inventory_tabs.option.excludeTab.@Tooltip": "格式:§e模组名称:方块id§r,或§e模组名称:标签id§r",
   "text.autoconfig.inventory_tabs.option.includeTab": "§n强制显示§r这些方块的选项卡:",
   "text.autoconfig.inventory_tabs.option.includeTab.@Tooltip": "格式:§e模组名称:方块§r",
+  "text.autoconfig.inventory_tabs.option.excludeScreens": "§n不在§r这些界面上显示选项卡:",
+  "text.autoconfig.inventory_tabs.option.excludeScreens.@Tooltip": "格式:界面的完整类名,§e*§r匹配任意内容,例如§ecom.mrcrayfish.backpacked.*§r。父类也会被匹配。",
   "text.autoconfig.inventory_tabs.option.debugEnabled": "在日志中打印调试信息(添加/删除选项卡ID)",
   "inventorytabs.key.next_tab": "循环物品栏选项卡",
   "inventorytabs.tab.next_page": "下一页",
